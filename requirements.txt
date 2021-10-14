@@ -1,6 +1,6 @@
-Flask==0.10.1
+flask>=1.0.0
 
-twilio==3.7.0
+twilio>=7.1.0
 
 # the following requirement is just for Heroku deploy button
-gunicorn==19.2.1
+gunicorn>=20.1.0
