@@ -2,7 +2,10 @@ import json
 import os
 from flask import Flask, Response, request
 from twilio import twiml
-from twilio.rest import TwilioRestClient, TwilioTaskRouterClient
+from twilio.rest import Client
+from twilio.rest.taskrouter.v1.workspace.activity import ActivityInstance
+from twilio.rest.taskrouter.v1.workspace.worker import WorkerInstance
+from werkzeug.datastructures import auth_property
 
 
 ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', '')
@@ -11,8 +14,11 @@ SUPPORT_DESK_NUMBER = os.environ.get('SUPPORT_DESK_NUMBER', '')
 WORKSPACE_SID = os.environ.get('WORKSPACE_SID', '')
 WORKFLOW_SID = os.environ.get('WORKFLOW_SID', '')
 
-client = TwilioRestClient(account=ACCOUNT_SID, token=AUTH_TOKEN)
-tr_client = TwilioTaskRouterClient(account=ACCOUNT_SID, token=AUTH_TOKEN)
+
+XML_CONTENT_TYPE = 'application/xml'
+JSON_CONTENT_TYPE = 'application/json'
+
+client = Client(account_sid=ACCOUNT_SID, password=AUTH_TOKEN, region='us2')
 app = Flask(__name__)
 
 
@@ -24,7 +30,7 @@ def working():
 def call():
     r = twiml.Response()
     r.enqueue('', workflowSid=WORKFLOW_SID)
-    return Response(str(r), content_type='application/xml')
+    return Response(str(r), content_type=XML_CONTENT_TYPE)
 
 
 @app.route('/assign', methods=['POST'])
@@ -37,7 +43,7 @@ def assign():
             body='Text {0} asking "{1}"'.format(task_attrs['phone_number'],
                                                 task_attrs['body']))
         return Response(json.dumps(instruction),
-                        content_type='application/json')
+                        content_type=JSON_CONTENT_TYPE)
     # defaults to voice call
     number = json.loads(request.form['WorkerAttributes'])['phone_number']
     instruction = {
@@ -45,7 +51,7 @@ def assign():
         "to": number,
         "from": SUPPORT_DESK_NUMBER
     }
-    return Response(json.dumps(instruction), content_type='application/json')
+    return Response(json.dumps(instruction), content_type=JSON_CONTENT_TYPE)
 
 
 @app.route('/message', methods=['POST'])
@@ -53,27 +59,38 @@ def message():
     # check if one of our workers is completing a task
     if request.form['Body'] == 'DONE':
         from_number = request.form['From']
-        for w in tr_client.workers(WORKSPACE_SID).list():
+        # Get workers from the workspace
+        workers = client.taskrouter.workspaces(WORKSPACE_SID).workers.list()
+        w:WorkerInstance
+        for w in workers:
             if from_number == json.loads(w.attributes)['phone_number']:
+                # Get activities in the task router
+                activities = client.taskrouter.workspaces(WORKSPACE_SID).activities.list()
+                activity:ActivityInstance
                 # update worker status back to idle
-                for activity in tr_client.activities(WORKSPACE_SID).list():
+                for activity in activities:
                     if activity.friendly_name == 'Idle':
                         w.update(activity_sid=activity.sid)
                         break
                 r = twiml.Response()
                 r.message("Ticket closed.")
-                return Response(str(r), content_type='application/xml')
+                return Response(str(r), content_type=XML_CONTENT_TYPE)
 
     task_attributes = {
         "training" : "sms",
         "phone_number" : request.form['From'],
         "body": request.form['Body']
     }
-    tasks = tr_client.tasks(WORKSPACE_SID).create(json.dumps(task_attributes),
-                                                  WORKFLOW_SID)
+    # Create tasks
+    tasks = client.taskrouter.workspaces(WORKSPACE_SID).tasks.create(
+        workflowSid=WORKFLOW_SID, taskChannel='voice', attributes=task_attributes)
+        
+    # Print the tasks in an easy to read format
+    print(json.dumps(tasks.__dict__, indent=2))
+
     r = twiml.Response()
     r.message("Thanks. You'll hear back from us soon.")
-    return Response(str(r), content_type='application/xml')
+    return Response(str(r), content_type=XML_CONTENT_TYPE)
 
 
 if __name__ == '__main__':
