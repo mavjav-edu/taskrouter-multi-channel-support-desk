@@ -4,3 +4,6 @@ twilio>=7.1.0
 
 # the following requirement is just for Heroku deploy button
 gunicorn>=20.1.0
+
+# for running locally
+keyring>=18.0.0
