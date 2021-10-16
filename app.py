@@ -18,6 +18,9 @@ WORKFLOW_SID = os.environ.get('WORKFLOW_SID', keyring.get_password('twilio', 'WO
 # To commit these to the key store in PowerShell, just run:
 # $vars=@("SUPPORT_DESK_NUMBER", "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "WORKFLOW_SID", "WORKSPACE_SID"); foreach($var in $vars){pyenv exec keyring set twilio $var}
 
+# To commit these to the key store in bash, just run:
+# $vars=("SUPPORT_DESK_NUMBER" "TWILIO_ACCOUNT_SID" "TWILIO_AUTH_TOKEN" "WORKFLOW_SID" "WORKSPACE_SID"); for i in "${vars[@]}"; do keyring set twilio $i; done
+
 XML_CONTENT_TYPE = 'application/xml'
 JSON_CONTENT_TYPE = 'application/json'
 
