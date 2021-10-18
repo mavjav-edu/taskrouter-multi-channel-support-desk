@@ -1,10 +1,10 @@
 import pytest
-from app import app
+from app import create_app
 
 
 @pytest.fixture
 def client():
-    return app.test_client()
+    return create_app().test_client()
 
 def test_home(client):
     resp = client.get('/')
