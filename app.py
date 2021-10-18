@@ -1,7 +1,8 @@
 import json
 import os
 from flask import Flask, Response, request
-from twilio import twiml
+from twilio.twiml.messaging_response import Message, MessagingResponse
+from twilio.twiml.voice_response import VoiceResponse, Enqueue
 from twilio.rest import Client
 from twilio.rest.taskrouter.v1.workspace.activity import ActivityInstance
 from twilio.rest.taskrouter.v1.workspace.worker import WorkerInstance
@@ -24,7 +25,7 @@ WORKFLOW_SID = os.environ.get('WORKFLOW_SID', keyring.get_password('twilio', 'WO
 XML_CONTENT_TYPE = 'application/xml'
 JSON_CONTENT_TYPE = 'application/json'
 
-client = Client(account_sid=ACCOUNT_SID, password=AUTH_TOKEN, region='us2')
+client = Client(username=ACCOUNT_SID, password=AUTH_TOKEN, region='us2')
 app = Flask(__name__)
 
 
@@ -34,14 +35,14 @@ def working():
 
 @app.route('/call', methods=['GET', 'POST'])
 def call():
-    r = twiml.Response()
-    r.enqueue('', workflowSid=WORKFLOW_SID)
+    r = VoiceResponse()
+    r.enqueue('support', workflowSid=WORKFLOW_SID)
     return Response(str(r), content_type=XML_CONTENT_TYPE)
 
 
 @app.route('/assign', methods=['POST'])
 def assign():
-    global client
+    global client, request
     task_attrs = json.loads(request.form['TaskAttributes'])
     if 'training' in task_attrs and task_attrs['training'] == 'sms':
         number = json.loads(request.form['WorkerAttributes'])['phone_number']
@@ -63,7 +64,7 @@ def assign():
 
 @app.route('/message', methods=['POST'])
 def message():
-    global client
+    global client, request
     # check if one of our workers is completing a task
     if request.form['Body'] == 'DONE':
         from_number = request.form['From']
@@ -80,7 +81,7 @@ def message():
                     if activity.friendly_name == 'Idle':
                         w.update(activity_sid=activity.sid)
                         break
-                r = twiml.Response()
+                r = MessagingResponse()
                 r.message("Ticket closed.")
                 return Response(str(r), content_type=XML_CONTENT_TYPE)
 
@@ -96,7 +97,7 @@ def message():
     # Log the tasks to debug output in an easy to read format
     print(json.dumps(tasks.__dict__, indent=2))
 
-    r = twiml.Response()
+    r = MessagingResponse()
     r.message("Thanks. You'll hear back from us soon.")
     return Response(str(r), content_type=XML_CONTENT_TYPE)
 

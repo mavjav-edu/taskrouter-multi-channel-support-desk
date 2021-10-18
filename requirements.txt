@@ -7,3 +7,9 @@ gunicorn>=20.1.0
 
 # for running locally
 keyring>=18.0.0
+
+# the latest pytest
+pytest>=6.2.5
+
+# the latest pytest-flask
+pytest-flask>=1.2.0
